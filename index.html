@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f6f8">
+<title>Portal da Casa</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{
+  --bg:#f4f6f8; --card:#ffffff; --texto:#1d2733; --suave:#5b6b7b; --linha:#e1e6eb;
+  --azul:#1565c0; --azul-claro:#e3f0fc; --laranja:#d84315; --verde:#2e7d32;
+  --raio:14px; --sombra:0 2px 8px rgba(20,40,60,.10);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:clamp(14px,1.65vw,18px)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--texto);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+a{color:inherit;text-decoration:none}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;padding:.7rem;gap:.7rem}
+.screen.active{display:flex}
+
+/* ---------- Início ---------- */
+.topbar{display:flex;align-items:center;gap:1.2rem;padding:.1rem .4rem;flex:0 0 auto}
+.clock{font-size:2.9rem;font-weight:700;letter-spacing:.02em;line-height:1;font-variant-numeric:tabular-nums}
+.clock small{font-size:1.2rem;font-weight:500;color:var(--suave)}
+.dateplace{flex:1;min-width:0}
+#dataTxt{font-size:1.15rem;font-weight:600;text-transform:capitalize}
+#localTxt{font-size:.95rem;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net{font-size:.85rem;color:var(--suave);white-space:nowrap}
+.net.off{color:var(--laranja);font-weight:700}
+.grid{flex:1;min-height:0;display:grid;gap:.7rem;
+  grid-template-columns:1fr 1.45fr;
+  grid-template-rows:1fr auto;
+  grid-template-areas:"cam aereo" "rec rec"}
+.datarow{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:.35rem;background:var(--azul-claro);border-radius:999px;padding:.2rem .7rem;font-size:.9rem;font-weight:700;white-space:nowrap;text-transform:none}
+.chip:active{background:#cfe4f8}
+.chip .ci{font-size:1.15rem;line-height:1}
+.chip .cs{font-weight:500;color:var(--suave)}
+.card{background:var(--card);border-radius:var(--raio);box-shadow:var(--sombra);padding:.8rem .9rem;
+  display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;position:relative}
+.card.toque:active{transform:scale(.985);background:#fbfcfd}
+.card h2{margin:0 0 .45rem;font-size:1rem;font-weight:700;color:var(--azul);display:flex;align-items:center;gap:.4rem}
+.card h2 .mais{margin-left:auto;font-size:.8rem;font-weight:600;color:var(--suave)}
+#cardRec{grid-area:rec} #cardCam{grid-area:cam} #cardAereo{grid-area:aereo}
+#cardCam h2,#cardAereo h2{font-size:1.15rem}
+
+/* Receitas: faixa compacta na base */
+#cardRec{flex-direction:row;align-items:center;gap:.6rem;padding:.45rem .6rem}
+.rec-cab{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;font-size:.72rem;font-weight:700;color:var(--azul);line-height:1.15;text-align:center;max-width:4.6rem}
+.rec-cab .big{font-size:1.4rem}
+.rec-lista{flex:1;min-width:0;display:flex;gap:.5rem}
+.rec{flex:1;min-width:0;display:flex;align-items:center;gap:.45rem;padding:.35rem .5rem;border-radius:10px;background:var(--azul-claro)}
+.rec:active{background:#cfe4f8}
+.rec .ri{font-size:1.25rem;line-height:1;flex:0 0 auto}
+.rec .t{font-size:.8rem;font-weight:700;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rec-rodape{flex:0 0 auto;display:flex;flex-direction:column;gap:.3rem}
+.btn-sec{padding:.3rem .6rem;border-radius:9px;border:1px solid var(--linha);font-size:.76rem;font-weight:600;text-align:center;background:#fff;white-space:nowrap}
+.btn-sec:active{background:var(--bg)}
+
+.cam-corpo{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;flex:1;text-align:center}
+.cam-ico{font-size:4rem;line-height:1}
+.cam-txt{font-size:1.2rem;font-weight:700;line-height:1.3}
+.cam-txt span{display:block;font-weight:400;font-size:.92rem;color:var(--suave);margin-top:.25rem}
+.cam-corpo .btn-prim{padding:.7rem 1.4rem;font-size:1.05rem}
+.camprev{position:relative;flex:1;border-radius:10px;overflow:hidden;background:#111}
+.camprev iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.camprev .badge{left:.5rem;bottom:.5rem}
+.camgrade{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:.6rem}
+.camgrade .cx{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#111}
+.camgrade iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.camgrade .cn{position:absolute;left:.4rem;top:.3rem;z-index:2;background:rgba(0,0,0,.55);color:#fff;font-size:.8rem;font-weight:700;padding:.1rem .45rem;border-radius:6px}
+
+.mapwrap{position:relative;flex:1;min-height:0;border-radius:10px;overflow:hidden;background:#dfe7ee}
+.mapwrap .leaflet-container{position:absolute;inset:0;background:#dfe7ee}
+.tapcatch{position:absolute;inset:0;z-index:1000}
+.badge{position:absolute;left:.5rem;bottom:.5rem;z-index:1001;background:rgba(255,255,255,.95);border-radius:8px;padding:.25rem .55rem;font-size:.85rem;font-weight:700;box-shadow:var(--sombra)}
+
+/* ---------- Telas internas ---------- */
+.subhead{display:flex;align-items:center;gap:.8rem;flex:0 0 auto}
+.voltar{background:var(--azul);color:#fff;font-weight:700;font-size:1.02rem;padding:.65rem 1.1rem;border-radius:12px;box-shadow:var(--sombra);white-space:nowrap}
+.voltar:active{background:#0d47a1}
+.subhead h1{margin:0;font-size:1.35rem;font-weight:700}
+.subhead .nota{margin-left:auto;font-size:.85rem;color:var(--suave);text-align:right}
+.corpo{flex:1;min-height:0;display:flex;gap:.7rem}
+.rolagem{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+.t-atual{display:flex;align-items:center;gap:1rem;margin-bottom:.8rem}
+.t-atual .ico{font-size:4rem;line-height:1}
+.t-atual .temp{font-size:3.6rem;font-weight:700;line-height:1}
+.t-atual .d{font-size:1.15rem;font-weight:600}
+.t-atual .s{font-size:.95rem;color:var(--suave)}
+.dados{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.dado{background:var(--bg);border-radius:10px;padding:.5rem .65rem}
+.dado b{display:block;font-size:.8rem;color:var(--suave);font-weight:600}
+.dado span{font-size:1.1rem;font-weight:700}
+.horas{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:.3rem;-webkit-overflow-scrolling:touch}
+.hora{flex:0 0 auto;min-width:4.3rem;text-align:center;background:var(--bg);border-radius:10px;padding:.45rem .3rem}
+.hora .h{font-size:.85rem;color:var(--suave);font-weight:600}
+.hora .i{font-size:1.5rem;margin:.1rem 0}
+.hora .tt{font-weight:700}
+.hora .p{font-size:.78rem;color:var(--azul)}
+.dia{display:flex;align-items:center;gap:.6rem;padding:.5rem .2rem;border-bottom:1px solid var(--linha)}
+.dia:last-child{border-bottom:0}
+.dia .n{width:3.6rem;font-weight:700;text-transform:capitalize}
+.dia .i{font-size:1.5rem;width:2rem;text-align:center}
+.dia .x{flex:1;font-size:.9rem;color:var(--suave)}
+.dia .m{font-weight:700;white-space:nowrap}
+.dia .m i{font-style:normal;color:var(--suave);font-weight:500}
+.col{display:flex;flex-direction:column;gap:.7rem;min-width:0;min-height:0}
+h3{margin:0 0 .5rem;font-size:1rem;color:var(--azul)}
+
+.passos{margin:.2rem 0 0;padding-left:1.2rem;line-height:1.6;font-size:.98rem}
+.cfg{display:flex;gap:.5rem;margin-top:.5rem}
+.cfg input{flex:1;font:inherit;padding:.55rem .7rem;border:1px solid var(--linha);border-radius:10px;background:#fff;-webkit-user-select:text;user-select:text}
+.btn-prim{background:var(--verde);color:#fff;font-weight:700;padding:.8rem 1.4rem;border-radius:12px;font-size:1.1rem;text-align:center;box-shadow:var(--sombra)}
+.btn-prim:active{background:#1b5e20}
+.aviso{background:#fff4e5;border-radius:10px;padding:.6rem .8rem;font-size:.92rem;line-height:1.4;color:#7a4300}
+
+.sites{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+.site{background:var(--azul-claro);border-radius:12px;padding:.8rem;text-align:center;font-weight:700}
+.lista-rec a{display:flex;align-items:center;gap:.6rem;padding:.65rem .3rem;border-bottom:1px solid var(--linha);font-weight:600}
+.lista-rec a span{margin-left:auto;font-size:.82rem;color:var(--suave);font-weight:500;white-space:nowrap}
+
+#mapaCheio{flex:1;min-width:0;position:relative;border-radius:var(--raio);overflow:hidden;background:#dfe7ee;box-shadow:var(--sombra)}
+#mapaCheio .leaflet-container{position:absolute;inset:0}
+.painel-av{flex:0 0 17rem;display:flex;flex-direction:column;min-height:0}
+.av{display:flex;align-items:center;gap:.5rem;padding:.5rem .3rem;border-bottom:1px solid var(--linha);width:100%}
+.av:active{background:var(--bg)}
+.av .c{font-weight:700;min-width:4.6rem}
+.av .i{flex:1;font-size:.82rem;color:var(--suave);line-height:1.3}
+.vazio{color:var(--suave);padding:.8rem .3rem;font-size:.95rem}
+.aviao{filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+.leaflet-div-icon{background:none;border:0}
+</style>
+</head>
+<body>
+
+<!-- ================= INÍCIO ================= -->
+<section id="home" class="screen active">
+  <header class="topbar">
+    <div class="clock"><span id="hhmm">--:--</span><small id="ss">:--</small></div>
+    <div class="dateplace">
+      <div class="datarow">
+        <span id="dataTxt">&nbsp;</span>
+        <button class="chip" id="chipTempo" type="button" aria-label="Abrir detalhes do tempo">
+          <span class="ci" id="chipIco">⏳</span><span id="chipTemp">--°C</span><span class="cs" id="chipDesc"></span>
+        </button>
+      </div>
+      <div id="localTxt">Buscando localização…</div>
+    </div>
+    <div class="net" id="net">● Online</div>
+  </header>
+
+  <main class="grid">
+    <div class="card toque" id="cardCam" role="button" tabindex="0" aria-label="Abrir câmeras">
+      <h2>📹 Câmeras · Tino Sec <span class="mais" style="margin-left:auto">Abrir ›</span></h2>
+      <div id="camCorpo" style="flex:1;min-height:0;display:flex"></div>
+    </div>
+
+    <section class="card" id="cardRec">
+      <div class="rec-cab"><span class="big" id="recIcone">🍽️</span><span id="recTitulo">Receitas</span></div>
+      <div class="rec-lista" id="recLista"></div>
+      <div class="rec-rodape">
+        <button class="btn-sec" type="button" id="btnTrocar">↻ Outras</button>
+        <button class="btn-sec" type="button" id="btnMaisRec">Mais ›</button>
+      </div>
+    </section>
+
+    <div class="card toque" id="cardAereo" role="button" tabindex="0" aria-label="Abrir tráfego aéreo">
+      <h2>✈️ Tráfego aéreo <span class="mais" style="margin-left:auto">Mapa ›</span></h2>
+      <div class="mapwrap">
+        <div id="miniMapa" style="position:absolute;inset:0"></div>
+        <div class="tapcatch"></div>
+        <div class="badge" id="miniBadge">Buscando…</div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- ================= TEMPO ================= -->
+<section id="tempo" class="screen">
+  <div class="subhead">
+    <button class="voltar" type="button" data-inicio>← Voltar ao início</button>
+    <h1>Tempo</h1>
+    <div class="nota" id="tNota"></div>
+  </div>
+  <div class="corpo">
+    <div class="col rolagem" style="flex:1.25">
+      <div class="card" style="overflow:visible">
+        <div id="tAtual"></div>
+        <div class="dados" id="tDados"></div>
+      </div>
+      <div class="card" style="overflow:visible">
+        <h3>Próximas 24 horas</h3>
+        <div class="horas" id="tHoras"></div>
+      </div>
+    </div>
+    <div class="card rolagem" style="flex:1">
+      <h3>Próximos 7 dias</h3>
+      <div id="tDias"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RECEITAS ================= -->
+<section id="receitas" class="screen">
+  <div class="subhead">
+    <button class="voltar" type="button" data-inicio>← Voltar ao início</button>
+    <h1 id="rTitulo">Receitas</h1>
+  </div>
+  <div class="col rolagem" style="flex:1">
+    <div class="card" style="overflow:visible">
+      <h3>Visitar os sites de receitas</h3>
+      <div class="sites">
+        <a class="site" href="https://www.tudogostoso.com.br/" target="_blank" rel="noopener">TudoGostoso</a>
+        <a class="site" href="https://receitas.globo.com/" target="_blank" rel="noopener">Receitas Globo</a>
+        <a class="site" href="https://panelinha.com.br/receitas" target="_blank" rel="noopener">Panelinha</a>
+      </div>
+    </div>
+    <div class="card" style="overflow:visible">
+      <h3 id="rListaTitulo">Mais sugestões</h3>
+      <div class="lista-rec" id="rLista"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CÂMERAS ================= -->
+<section id="cameras" class="screen">
+  <div class="subhead">
+    <button class="voltar" type="button" data-inicio>← Voltar ao início</button>
+    <h1>Câmeras · Tino Sec</h1>
+  </div>
+  <div class="corpo">
+    <div class="col rolagem" style="flex:1">
+      <div class="card" style="overflow:visible;align-items:flex-start;gap:.8rem">
+        <button class="btn-prim" type="button" id="btnTino" style="width:100%">📹 Abrir o aplicativo Tino Sec</button>
+        <div class="aviso" id="camAviso" hidden></div>
+        <div style="font-size:.95rem;color:var(--suave);line-height:1.45">
+          O Tino Sec abre em tela cheia, com todas as funções (ao vivo, gravações, áudio, giro da câmera). Para voltar ao portal, use o botão “Voltar” ou “Recentes” do Android.
+        </div>
+      </div>
+      <div class="card" id="camGradeCard" style="overflow:visible" hidden>
+        <h3>Câmeras por endereço de vídeo</h3>
+        <div class="camgrade" id="camGrade"></div>
+      </div>
+      <div class="card" style="overflow:visible">
+        <h3>Usar o Tino Sec ao mesmo tempo que o portal</h3>
+        <ol class="passos">
+          <li>Abra o Tino Sec pelo botão acima.</li>
+          <li>Toque em <b>Recentes</b> (botão de três barras).</li>
+          <li>Toque no ícone do app e escolha <b>Abrir em visualização dividida</b> (ou “pop-up”).</li>
+          <li>Escolha o navegador do portal para ocupar a outra metade.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="card rolagem" style="flex:.8">
+      <h3>Configuração do aplicativo</h3>
+      <div style="font-size:.92rem;color:var(--suave);line-height:1.45">
+        Cole o <b>nome do pacote</b> do Tino Sec ou o <b>link dele na Google Play</b>. O portal extrai o pacote sozinho.
+      </div>
+      <div class="cfg">
+        <input id="pkgInput" type="text" inputmode="url" placeholder="com.exemplo.app ou link da Play Store" autocomplete="off">
+        <button class="btn-sec" type="button" id="pkgSalvar" style="flex:0 0 auto;background:var(--azul-claro)">Salvar</button>
+      </div>
+      <div id="pkgStatus" style="margin-top:.5rem;font-size:.9rem"></div>
+
+      <h3 style="margin-top:1rem">Ver as câmeras direto no portal (opcional)</h3>
+      <div style="font-size:.92rem;color:var(--suave);line-height:1.45">
+        Só funciona se as câmeras oferecerem vídeo local (ONVIF/RTSP) e você tiver um conversor para a web, como o go2rtc. Uma câmera por linha: <b>Nome | endereço da página de vídeo</b>.
+      </div>
+      <textarea id="camUrls" rows="4" placeholder="Garagem | http://192.168.0.20:1984/stream.html?src=garagem" style="width:100%;margin-top:.5rem;font:inherit;font-size:.88rem;padding:.5rem .7rem;border:1px solid var(--linha);border-radius:10px;-webkit-user-select:text;user-select:text"></textarea>
+      <div class="cfg"><button class="btn-sec" type="button" id="camSalvar" style="background:var(--azul-claro)">Salvar câmeras</button></div>
+      <div id="camStatus" style="margin-top:.5rem;font-size:.9rem"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRÁFEGO AÉREO ================= -->
+<section id="trafego" class="screen">
+  <div class="subhead">
+    <button class="voltar" type="button" data-inicio>← Voltar ao início</button>
+    <h1>Tráfego aéreo · raio de 100 km</h1>
+    <div class="nota" id="aNota"></div>
+  </div>
+  <div class="corpo">
+    <div id="mapaCheio"></div>
+    <div class="card painel-av">
+      <h3 id="aTitulo">Aeronaves</h3>
+      <div class="rolagem" id="aLista" style="flex:1;min-height:0"></div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* =============== Configurações =============== */
+var RAIO_KM = 100;
+var RAIO_NM = Math.round(RAIO_KM / 1.852);          // 54 milhas náuticas
+var INATIVIDADE_S = 180;                            // volta ao início após 3 min parado numa tela interna
+var PROVEDORES_ADSB = ['https://api.adsb.lol','https://api.airplanes.live','https://api.adsb.one'];
+
+/* =============== Receitas (links verificados do TudoGostoso) =============== */
+/* Para acrescentar Receitas Globo ou Panelinha, basta incluir linhas com o link completo (https://...)
+   e f:'Receitas Globo' ou f:'Panelinha'. */
+function R(t, u, f){ return { t:t, u:(u.indexOf('http')===0 ? u : 'https://www.tudogostoso.com.br/receita/'+u), f:f||'TudoGostoso' }; }
+var RECEITAS = {
+  cafe: [
+    R('Pão caseiro rápido e fofo','35829-pao-caseiro-rapido-e-fofo.html'),
+    R('Bolo de fubá cremoso','3468-bolo-de-fuba-cremoso.html'),
+    R('Pão de queijo 3 ingredientes','79996-pao-de-queijo-3-ingredientes.html'),
+    R('Panqueca americana','13110-panqueca-americana.html'),
+    R('Crepe de tapioca (crepioca)','168455-crepe-de-tapioca-crepioca.html'),
+    R('Omelete rápido','2114-omelete-rapido.html'),
+    R('Misto quente de forno à minha moda','138603-misto-quente-de-forno-a-minha-moda.html'),
+    R('Ovos mexidos de café da manhã','119423-ovos-mexidos-de-cafe-da-manha.html'),
+    R('Bolo de banana e aveia','100781-bolo-de-banana-e-aveia.html'),
+    R('Bolinho de chuva','4683-bolinho-de-chuva.html'),
+    R('Tapioca de leite condensado','144-tapioca-de-leite-condensado.html'),
+    R('Bolo de laranja','24-bolo-de-laranja.html'),
+    R('Crepioca fit','183595-crepioca-fit.html'),
+    R('Bauru de forno com pão de forma','67900-bauru-de-forno-com-pao-de-forma.html'),
+    R('Pão de queijo de frigideira de tapioca','175982-pao-de-queijo-de-frigideira-de-tapioca.html'),
+    R('Panqueca saudável de aveia e banana','189500-panqueca-saudavel-de-aveia-e-banana.html'),
+    R('Pão de batata','83-pao-de-batata.html'),
+    R('Pão integral caseiro','1094-pao-integral-caseiro.html'),
+    R('Bolo de milho','1650-bolo-de-milho.html'),
+    R('Bolo de banana fofinho','188774-bolo-de-banana-fofinho.html'),
+    R('Pão de minuto','5770-pao-de-minuto.html'),
+    R('Bolo de fubá simples','21560-bolo-de-fuba-simples.html'),
+    R('Misto quente','9013-misto-quente.html'),
+    R('Sanduíche de forno','10580-sanduiche-de-forno.html'),
+    R('Bolinho de chuva com banana','14950-bolinho-de-chuva-com-banana.html'),
+    R('Cappuccino caseiro','50547-cappuccino-caseiro.html'),
+    R('Bolo de maçã com canela','78068-bolo-de-maca-com-canela.html'),
+    R('Omelete de banana','133708-omelete-de-banana.html'),
+    R('Pão doce caseiro','39978-pao-doce-caseiro.html')
+  ],
+  almoco: [
+    R('Fricassê de frango','10254-fricasse-de-frango.html'),
+    R('Strogonoff de frango','2462-strogonoff-de-frango.html'),
+    R('Frango xadrez','897-frango-xadrez.html'),
+    R('Estrogonofe de carne simples','53915-estrogonofe-de-carne-simples.html'),
+    R('Almôndegas','64879-almondegas.html'),
+    R('Lasanha de carne moída','876-lasanha-de-carne-moida.html'),
+    R('Rocambole de carne moída maravilhoso','1598-rocambole-de-carne-moida-maravilhoso.html'),
+    R('Yakissoba da casa','2085-yakissoba-da-casa.html'),
+    R('Moqueca de peixe fácil','133817-moqueca-de-peixe-facil.html'),
+    R('Bobó de camarão','112-bobo-de-camarao.html'),
+    R('Filé de frango empanado','30068-file-de-frango-empanado.html'),
+    R('Torta de frango','1282-torta-de-frango.html'),
+    R('Hambúrguer caseiro','187825-hamburguer-caseiro.html'),
+    R('Salpicão de frango simples','125788-salpicao-de-frango-simples.html'),
+    R('Peito de frango na Air fryer','300841-peito-de-frango-na-air-fryer.html'),
+    R('Picanha invertida','41121-picanha-invertida.html'),
+    R('Frango desfiado na panela de pressão','162495-frango-desfiado-na-panela-de-pressao.html'),
+    R('Purê de batata simples e fácil','59-pure-de-batata.html'),
+    R('Camarão na moranga','1106-camarao-na-moranga.html'),
+    R('Risoto de camarão sem frescura','185493-risoto-de-camarao-sem-frescura.html'),
+    R('Creme de milho','6662-creme-de-milho.html'),
+    R('Linguiça com batata na airfryer','320801-linguica-com-batata-na-airfryer-com-dicas-para-cozinhar-junto-e-ficar-suculento.html'),
+    R('Bolinho de arroz','4224-bolinho-de-arroz.html'),
+    R('Torta de liquidificador salgada','24805-torta-de-liquidificador-salgada.html'),
+    R('Empadão de frango delicioso','8054-empadao-de-frango-delicioso.html'),
+    R('Rocambole de carne moída com recheio cremoso','320796-rocambole-de-carne-moida-com-recheio-cremoso-de-queijo-e-assado-com-batatas.html')
+  ],
+  janta: [
+    R('Canja de galinha rápida','42591-canja-de-galinha-rapida.html'),
+    R('Caldo verde','9031-caldo-verde.html'),
+    R('Sopa de legumes com macarrão','15665-sopa-de-legumes-com-macarrao.html'),
+    R('Sopa de ervilha','14485-sopa-de-ervilha.html'),
+    R('Omelete de forno','197359-omelete-de-forno.html'),
+    R('Omelete recheado especial','98130-omelete-recheado-especial.html'),
+    R('Panqueca','4255-panqueca.html'),
+    R('Misto quente','9013-misto-quente.html'),
+    R('Sanduíche de forno','10580-sanduiche-de-forno.html'),
+    R('Tabule','58-tabule.html'),
+    R('Strogonoff fit com frango leve, cremoso e saboroso','320723-strogonoff-fit-com-frango-leve-cremoso-e-saboroso.html'),
+    R('Torta de liquidificador salgada','24805-torta-de-liquidificador-salgada.html'),
+    R('Sanduíche natural de frango bem temperado','52845-sanduiche-natural-de-frango-bem-temperado.html'),
+    R('Sanduíche básico de frango','28077-sanduiche-basico-de-frango.html'),
+    R('Omelete rápido','2114-omelete-rapido.html'),
+    R('Crepioca fit','183595-crepioca-fit.html'),
+    R('Salpicão de frango simples','125788-salpicao-de-frango-simples.html'),
+    R('Bolinho de arroz','4224-bolinho-de-arroz.html'),
+    R('Creme de milho','6662-creme-de-milho.html'),
+    R('Panqueca sem ovo','144510-panqueca-sem-ovo.html'),
+    R('Bauru de forno com pão de forma','67900-bauru-de-forno-com-pao-de-forma.html'),
+    R('Almôndegas','64879-almondegas.html'),
+    R('Peito de frango na Air fryer','300841-peito-de-frango-na-air-fryer.html')
+  ]
+};
+var REFEICAO_INFO = {
+  cafe:   { nome:'café da manhã', icone:'☕' },
+  almoco: { nome:'almoço',        icone:'🍲' },
+  janta:  { nome:'janta',         icone:'🌙' }
+};
+
+/* =============== Utilitários =============== */
+function $(s){ return document.querySelector(s); }
+function pad(n){ return (n<10?'0':'')+n; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function fetchJson(url, ms){
+  var ctl = ('AbortController' in window) ? new AbortController() : null;
+  var t = setTimeout(function(){ if(ctl) ctl.abort(); }, ms||10000);
+  return fetch(url, ctl?{signal:ctl.signal}:{}).then(function(r){
+    clearTimeout(t);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).catch(function(e){ clearTimeout(t); throw e; });
+}
+function km(lat1,lon1,lat2,lon2){
+  var R=6371, d2r=Math.PI/180;
+  var dLat=(lat2-lat1)*d2r, dLon=(lon2-lon1)*d2r;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*d2r)*Math.cos(lat2*d2r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function pt(n,d){ return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
+function direcao(g){
+  var n=['N','NE','L','SE','S','SO','O','NO'];
+  return n[Math.round(((g%360)+360)%360/45)%8];
+}
+
+/* =============== Navegação entre telas =============== */
+var TELAS=['tempo','receitas','cameras','trafego'];
+var idleTimer=null;
+function telaAtual(){ var h=location.hash.replace('#',''); return TELAS.indexOf(h)>=0?h:'home'; }
+function mostrar(id){
+  var els=document.querySelectorAll('.screen');
+  for(var i=0;i<els.length;i++) els[i].classList.toggle('active', els[i].id===id);
+  if(id==='tempo') renderTempoCompleto();
+  if(id==='receitas') renderTelaReceitas();
+  if(id==='cameras') renderCameras(); else $('#camGrade').innerHTML='';   // não deixa vídeo rodando em segundo plano
+  if(id==='trafego') abrirMapaCheio();
+  if(id==='home' && mapaMini) setTimeout(function(){ mapaMini.invalidateSize(); if(circMini) mapaMini.fitBounds(circMini.getBounds(),{animate:false}); },60);
+  reiniciarIdle();
+}
+function irPara(id){ location.hash = (id==='home') ? '' : id; if(!location.hash || location.hash==='#') mostrar(telaAtual()); }
+function irInicio(){ if(location.hash && location.hash!=='#'){ location.hash=''; } mostrar('home'); }
+window.addEventListener('hashchange', function(){ mostrar(telaAtual()); });
+function reiniciarIdle(){
+  clearTimeout(idleTimer);
+  if(telaAtual()==='home') return;
+  idleTimer=setTimeout(function(){ irInicio(); }, INATIVIDADE_S*1000);
+}
+document.addEventListener('pointerdown', reiniciarIdle, true);
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+var voltarBtns=document.querySelectorAll('[data-inicio]');
+for(var vi=0;vi<voltarBtns.length;vi++) voltarBtns[vi].addEventListener('click', irInicio);
+
+$('#chipTempo').addEventListener('click', function(){ irPara('tempo'); });
+$('#cardCam').addEventListener('click', function(){ irPara('cameras'); });
+$('#cardAereo').addEventListener('click', function(){ irPara('trafego'); });
+$('#btnMaisRec').addEventListener('click', function(){ irPara('receitas'); });
+
+/* =============== Relógio 24 h e data =============== */
+var ultimoMinuto=-1, chaveAtual='';
+function tick(){
+  var d=new Date();
+  $('#ss').textContent=':'+pad(d.getSeconds());
+  if(d.getMinutes()!==ultimoMinuto){
+    ultimoMinuto=d.getMinutes();
+    $('#hhmm').textContent=pad(d.getHours())+':'+pad(d.getMinutes());
+    $('#dataTxt').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+    // Troca as receitas quando muda a refeição OU o dia (a seleção é calculada pela data)
+    var r=refeicaoDe(d), chave=r+'|'+diaBase(d,r);
+    if(chave!==chaveAtual){ chaveAtual=chave; trocas=0; renderReceitas(); }
+  }
+}
+
+/* =============== Receitas por horário =============== */
+/* Café da manhã 06:00–10:00 · Almoço 10:01–14:00 · Janta 14:01–05:59 */
+function refeicaoDe(d){
+  var m=d.getHours()*60+d.getMinutes();
+  if(m>=360 && m<=600) return 'cafe';
+  if(m>=601 && m<=840) return 'almoco';
+  return 'janta';
+}
+var trocas=0;
+function diaBase(d, ref){
+  var x=new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if(ref==='janta' && d.getHours()<6) x.setDate(x.getDate()-1);   // madrugada pertence à janta do dia anterior
+  return Math.floor(Date.UTC(x.getFullYear(),x.getMonth(),x.getDate())/86400000);
+}
+function sugestoes(){
+  var d=new Date(), ref=refeicaoDe(d), lista=RECEITAS[ref], n=lista.length;
+  var inicio=(diaBase(d,ref)*7 + trocas*3) % n;
+  var out=[]; for(var i=0;i<3;i++) out.push(lista[(inicio+i)%n]);
+  return { ref:ref, itens:out, todas:lista };
+}
+var ICONES_REC=[
+  [/pão de queijo|pao de queijo/i,'🧀'],[/pão|pao /i,'🍞'],[/bolo|bolinho|brownie|biscoito/i,'🍰'],
+  [/omelete|ovo/i,'🍳'],[/panqueca|crepe|crepioca|tapioca|waffle/i,'🥞'],
+  [/sopa|caldo|canja|creme/i,'🍲'],[/misto|sanduíche|sanduiche|bauru|hambúrguer|hamburguer/i,'🥪'],
+  [/lasanha|macarr|yakissoba|nhoque/i,'🍝'],[/camarão|camarao|peixe|moqueca|bobó|bobo/i,'🦐'],
+  [/frango|strogonoff|estrogonofe|fricassê|fricasse/i,'🍗'],[/carne|picanha|almôndega|almondega|rocambole|linguiça|linguica/i,'🥩'],
+  [/salada|salpicão|salpicao|tabule/i,'🥗'],[/torta|empadão|empadao/i,'🥧'],[/risoto|arroz|purê|pure/i,'🍚'],
+  [/cappuccino|café|cafe|chocolate quente/i,'☕']
+];
+function iconeReceita(t){
+  for(var i=0;i<ICONES_REC.length;i++){ if(ICONES_REC[i][0].test(t)) return ICONES_REC[i][1]; }
+  return '🍽️';
+}
+function renderReceitas(){
+  var s=sugestoes(), info=REFEICAO_INFO[s.ref];
+  $('#recIcone').textContent=info.icone;
+  $('#recTitulo').textContent=info.nome.charAt(0).toUpperCase()+info.nome.slice(1);
+  var h='';
+  s.itens.forEach(function(r){
+    h+='<a class="rec" href="'+esc(r.u)+'" target="_blank" rel="noopener"><span class="ri">'+iconeReceita(r.t)+'</span><span class="t">'+esc(r.t)+'</span></a>';
+  });
+  $('#recLista').innerHTML=h;
+}
+function renderTelaReceitas(){
+  var s=sugestoes(), info=REFEICAO_INFO[s.ref];
+  $('#rTitulo').textContent='Receitas · '+info.nome;
+  $('#rListaTitulo').textContent='Mais sugestões para o '+info.nome;
+  var h='';
+  s.todas.forEach(function(r){
+    h+='<a href="'+esc(r.u)+'" target="_blank" rel="noopener">'+esc(r.t)+'<span>'+esc(r.f)+' ↗</span></a>';
+  });
+  $('#rLista').innerHTML=h;
+}
+$('#btnTrocar').addEventListener('click', function(){ trocas++; renderReceitas(); });
+
+/* =============== Localização dinâmica =============== */
+var pos = lsGet('portal.pos');      // {lat,lon,nome}
+function gps(){
+  return new Promise(function(res){
+    if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      function(p){ res({lat:p.coords.latitude, lon:p.coords.longitude}); },
+      function(){ res(null); },
+      {enableHighAccuracy:false, timeout:15000, maximumAge:300000});
+  });
+}
+function porIP(){
+  return fetchJson('https://get.geojs.io/v1/ip/geo.json',8000).then(function(j){
+    return {lat:parseFloat(j.latitude), lon:parseFloat(j.longitude), nome:j.city||''};
+  }).catch(function(){ return null; });
+}
+function nomeLocal(p){
+  var u='https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+p.lat+'&longitude='+p.lon+'&localityLanguage=pt';
+  return fetchJson(u,8000).then(function(j){
+    var c=j.city||j.locality||'', e=j.principalSubdivision||'';
+    return (c && e) ? c+' · '+e : (c||e||'');
+  }).catch(function(){ return ''; });
+}
+function atualizarLocal(){
+  return gps().then(function(g){ return g || porIP(); }).then(function(novo){
+    if(!novo){ if(!pos) $('#localTxt').textContent='Localização indisponível — permita o acesso à localização'; return false; }
+    var mudou=!pos || km(pos.lat,pos.lon,novo.lat,novo.lon)>2;
+    if(!mudou){ return false; }
+    return nomeLocal(novo).then(function(n){
+      pos={lat:novo.lat, lon:novo.lon, nome:n||novo.nome||''};
+      lsSet('portal.pos',pos);
+      mostrarLocal();
+      return true;
+    });
+  });
+}
+function mostrarLocal(){
+  if(!pos) return;
+  $('#localTxt').textContent=pos.nome || (pt(pos.lat,2)+', '+pt(pos.lon,2));
+}
+
+/* =============== Tempo (Open-Meteo) =============== */
+var WMO={
+  0:['Céu limpo','☀️','🌙'],1:['Quase limpo','🌤️','🌙'],2:['Parcialmente nublado','⛅','☁️'],3:['Nublado','☁️','☁️'],
+  45:['Neblina','🌫️','🌫️'],48:['Neblina com geada','🌫️','🌫️'],
+  51:['Garoa fraca','🌦️','🌧️'],53:['Garoa','🌦️','🌧️'],55:['Garoa forte','🌧️','🌧️'],
+  56:['Garoa congelante','🌧️','🌧️'],57:['Garoa congelante forte','🌧️','🌧️'],
+  61:['Chuva fraca','🌦️','🌧️'],63:['Chuva moderada','🌧️','🌧️'],65:['Chuva forte','🌧️','🌧️'],
+  66:['Chuva congelante','🌧️','🌧️'],67:['Chuva congelante forte','🌧️','🌧️'],
+  71:['Neve fraca','🌨️','🌨️'],73:['Neve','🌨️','🌨️'],75:['Neve forte','❄️','❄️'],77:['Grãos de neve','🌨️','🌨️'],
+  80:['Pancadas de chuva fracas','🌦️','🌧️'],81:['Pancadas de chuva','🌧️','🌧️'],82:['Pancadas de chuva fortes','⛈️','⛈️'],
+  85:['Pancadas de neve','🌨️','🌨️'],86:['Pancadas de neve fortes','❄️','❄️'],
+  95:['Trovoada','⛈️','⛈️'],96:['Trovoada com granizo','⛈️','⛈️'],99:['Trovoada com granizo forte','⛈️','⛈️']
+};
+function wmo(code, dia){ var w=WMO[code]||['—','🌡️','🌡️']; return {txt:w[0], ico: dia===0 ? w[2] : w[1]}; }
+var clima = lsGet('portal.clima');
+function atualizarTempo(){
+  if(!pos) return Promise.resolve();
+  var u='https://api.open-meteo.com/v1/forecast?latitude='+pos.lat+'&longitude='+pos.lon+
+    '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m'+
+    '&hourly=temperature_2m,precipitation_probability,weather_code,is_day'+
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max,precipitation_sum'+
+    '&timezone=auto&forecast_days=7&wind_speed_unit=kmh&temperature_unit=celsius';
+  return fetchJson(u,12000).then(function(j){
+    clima={dados:j, em:Date.now()}; lsSet('portal.clima',clima);
+    renderTempoResumo();
+    if(telaAtual()==='tempo') renderTempoCompleto();
+  }).catch(function(){ renderTempoResumo(); });
+}
+function renderTempoResumo(){
+  // Ícone pequeno ao lado da data: condição, temperatura e chance de chuva
+  if(!clima){ $('#chipIco').textContent='🌡️'; $('#chipTemp').textContent='--°C'; $('#chipDesc').textContent='sem dados'; return; }
+  var c=clima.dados.current, d=clima.dados.daily, w=wmo(c.weather_code, c.is_day);
+  var prob=d.precipitation_probability_max[0];
+  $('#chipIco').textContent=w.ico;
+  $('#chipTemp').textContent=Math.round(c.temperature_2m)+'°C';
+  $('#chipDesc').textContent=w.txt+(prob==null?'':' · 🌧 '+prob+'%');
+}
+function renderTempoCompleto(){
+  if(!clima){ $('#tAtual').innerHTML='<div class="vazio">Sem dados do tempo no momento.</div>'; return; }
+  var j=clima.dados, c=j.current, d=j.daily, h=j.hourly, w=wmo(c.weather_code,c.is_day);
+  $('#tNota').textContent='Atualizado às '+new Date(clima.em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',hour12:false})+(pos&&pos.nome?' · '+pos.nome:'');
+  $('#tAtual').innerHTML='<div class="t-atual"><div class="ico">'+w.ico+'</div><div><div class="temp">'+Math.round(c.temperature_2m)+'°C</div></div>'+
+    '<div><div class="d">'+esc(w.txt)+'</div><div class="s">Sensação térmica de '+Math.round(c.apparent_temperature)+'°C</div></div></div>';
+  var itens=[
+    ['Máxima / mínima', Math.round(d.temperature_2m_max[0])+'° / '+Math.round(d.temperature_2m_min[0])+'°'],
+    ['Umidade', Math.round(c.relative_humidity_2m)+'%'],
+    ['Vento', Math.round(c.wind_speed_10m)+' km/h '+direcao(c.wind_direction_10m)],
+    ['Rajadas', Math.round(c.wind_gusts_10m)+' km/h'],
+    ['Chance de chuva', (d.precipitation_probability_max[0]==null?'—':d.precipitation_probability_max[0]+'%')],
+    ['Chuva prevista hoje', pt(d.precipitation_sum[0],1)+' mm'],
+    ['Nuvens', Math.round(c.cloud_cover)+'%'],
+    ['Pressão', Math.round(c.pressure_msl)+' hPa'],
+    ['Índice UV máx.', pt(d.uv_index_max[0],1)],
+    ['Nascer do sol', d.sunrise[0].slice(11,16)],
+    ['Pôr do sol', d.sunset[0].slice(11,16)],
+    ['Chuva agora', pt(c.precipitation,1)+' mm']
+  ];
+  $('#tDados').innerHTML=itens.map(function(x){ return '<div class="dado"><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>'; }).join('');
+
+  var ref=c.time.slice(0,13)+':00', ini=0;
+  for(var i=0;i<h.time.length;i++){ if(h.time[i]>=ref){ ini=i; break; } }
+  var hs='';
+  for(var k=ini;k<ini+24 && k<h.time.length;k++){
+    var wh=wmo(h.weather_code[k], h.is_day[k]);
+    var p=h.precipitation_probability[k];
+    hs+='<div class="hora"><div class="h">'+h.time[k].slice(11,13)+'h</div><div class="i">'+wh.ico+'</div><div class="tt">'+Math.round(h.temperature_2m[k])+'°</div><div class="p">'+(p==null?'':p+'%')+'</div></div>';
+  }
+  $('#tHoras').innerHTML=hs;
+
+  var ds='';
+  for(var q=0;q<d.time.length;q++){
+    var wd=wmo(d.weather_code[q],1);
+    var nome=q===0?'Hoje':new Date(d.time[q]+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','');
+    var pp=d.precipitation_probability_max[q];
+    ds+='<div class="dia"><div class="n">'+esc(nome)+'</div><div class="i">'+wd.ico+'</div><div class="x">'+esc(wd.txt)+(pp?' · '+pp+'%':'')+'</div><div class="m">'+Math.round(d.temperature_2m_max[q])+'° <i>/ '+Math.round(d.temperature_2m_min[q])+'°</i></div></div>';
+  }
+  $('#tDias').innerHTML=ds;
+}
+
+/* =============== Câmeras (Tino Sec) =============== */
+function pacoteSalvo(){ var p=lsGet('portal.pkg'); return (typeof p==='string')?p:''; }
+function extrairPacote(txt){
+  txt=(txt||'').trim();
+  var m=txt.match(/[?&]id=([A-Za-z0-9_.]+)/);
+  if(m) return m[1];
+  if(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/.test(txt)) return txt;
+  return '';
+}
+/* Câmeras por endereço de vídeo (opcional): [{n:'Garagem', u:'http://...'}] */
+function camsSalvas(){ var c=lsGet('portal.cams'); return Array.isArray(c)?c:[]; }
+function lerCamsTexto(txt){
+  var out=[];
+  (txt||'').split('\n').forEach(function(l,i){
+    l=l.trim(); if(!l) return;
+    var n='Câmera '+(out.length+1), u=l, k=l.indexOf('|');
+    if(k>0){ n=l.slice(0,k).trim()||n; u=l.slice(k+1).trim(); }
+    if(/^https?:\/\//i.test(u)) out.push({n:n,u:u});
+  });
+  return out;
+}
+function renderCamHome(){
+  var el=$('#camCorpo'), cams=camsSalvas();
+  if(cams.length){
+    el.innerHTML='<div class="camprev"><iframe src="'+esc(cams[0].u)+'" scrolling="no" tabindex="-1" allow="autoplay" referrerpolicy="no-referrer"></iframe><div class="tapcatch"></div><div class="badge">'+esc(cams[0].n)+(cams.length>1?' · +'+(cams.length-1):'')+'</div></div>';
+  } else {
+    el.innerHTML='<div class="cam-corpo"><div class="cam-ico">🔒</div><div class="cam-txt">Tino Sec<span>Toque para ver as câmeras</span></div><span class="btn-prim" id="btnTinoRapido" role="button">Abrir o Tino Sec</span></div>';
+    $('#btnTinoRapido').addEventListener('click', function(e){ e.stopPropagation(); abrirTino(); });
+  }
+}
+function renderCameras(){
+  var p=pacoteSalvo();
+  $('#pkgInput').value=p;
+  $('#pkgStatus').innerHTML=p?'<span style="color:var(--verde);font-weight:700">✔ Pacote salvo:</span> '+esc(p):'<span style="color:var(--laranja);font-weight:700">Pacote ainda não informado.</span>';
+  var av=$('#camAviso');
+  if(!p){ av.hidden=false; av.textContent='Falta informar o pacote do Tino Sec (quadro ao lado) para o botão abrir o aplicativo.'; }
+  else av.hidden=true;
+  var cams=camsSalvas();
+  $('#camUrls').value=cams.map(function(c){ return c.n+' | '+c.u; }).join('\n');
+  var card=$('#camGradeCard');
+  card.hidden=!cams.length;
+  $('#camGrade').innerHTML=cams.map(function(c){
+    return '<div class="cx"><div class="cn">'+esc(c.n)+'</div><iframe src="'+esc(c.u)+'" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe></div>';
+  }).join('');
+}
+$('#camSalvar').addEventListener('click', function(){
+  var cams=lerCamsTexto($('#camUrls').value);
+  lsSet('portal.cams',cams);
+  renderCamHome(); renderCameras();
+  var aviso=(location.protocol==='https:' && cams.some(function(c){ return /^http:/i.test(c.u); }))
+    ? ' <span style="color:var(--laranja);font-weight:700">Atenção: página segura (https) não mostra vídeo de endereço http.</span>' : '';
+  $('#camStatus').innerHTML=(cams.length?'✔ '+cams.length+' câmera(s) salva(s).':'Nenhuma câmera por endereço.')+aviso;
+});
+$('#pkgSalvar').addEventListener('click', function(){
+  var p=extrairPacote($('#pkgInput').value);
+  if(!p){ $('#pkgStatus').innerHTML='<span style="color:var(--laranja);font-weight:700">Não reconheci. Cole o nome do pacote ou o link da Play Store.</span>'; return; }
+  lsSet('portal.pkg',p); renderCameras();
+});
+function abrirTino(){
+  var p=pacoteSalvo();
+  if(!p){ renderCameras(); return; }
+  try{ if(window.fully && typeof window.fully.startApplication==='function'){ window.fully.startApplication(p); return; } }catch(e){}
+  var av=$('#camAviso');
+  location.href='intent://#Intent;package='+p+';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end';
+  setTimeout(function(){
+    if(!document.hidden){ av.hidden=false; av.textContent='Não consegui abrir o aplicativo. Confira o nome do pacote e se o Tino Sec está instalado.'; }
+  },1800);
+}
+$('#btnTino').addEventListener('click', abrirTino);
+
+/* =============== Tráfego aéreo =============== */
+var mapaMini=null, mapaCheio=null, camadaMini=null, camadaCheio=null, circMini=null, circCheio=null, marcadores={};
+var aeronaves=[], aereoOk=false, aereoEm=0, timerAereo=null;
+function temMapa(){ return typeof window.L!=='undefined'; }
+function criarMapa(el, interativo){
+  var m=L.map(el,{zoomControl:interativo,dragging:interativo,touchZoom:interativo,doubleClickZoom:interativo,scrollWheelZoom:false,boxZoom:false,keyboard:false,tap:false,attributionControl:true});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:12,minZoom:5,attribution:'© OpenStreetMap'}).addTo(m);
+  return m;
+}
+function iconeAviao(trilha, solo){
+  var cor=solo?'#6b7a89':'#d84315';
+  var svg='<svg class="aviao" width="26" height="26" viewBox="0 0 24 24" style="transform:rotate('+(trilha||0)+'deg)"><path d="M12 1.5l2 7 8 4.5v2.2l-8-2.4v5l3 2.2v1.6L12 19.8 7 21.6V20l3-2.2v-5l-8 2.4V13l8-4.5z" fill="'+cor+'" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+  return L.divIcon({html:svg,className:'',iconSize:[26,26],iconAnchor:[13,13]});
+}
+function iniciarMiniMapa(){
+  if(!temMapa()){ $('#miniBadge').textContent='Mapa indisponível'; return; }
+  if(!pos) return;
+  if(!mapaMini){
+    mapaMini=criarMapa('miniMapa',false);
+    camadaMini=L.layerGroup().addTo(mapaMini);
+  }
+  if(circMini) mapaMini.removeLayer(circMini);
+  circMini=L.circle([pos.lat,pos.lon],{radius:RAIO_KM*1000,color:'#1565c0',weight:1.5,fillOpacity:.04}).addTo(mapaMini);
+  mapaMini.fitBounds(circMini.getBounds(),{animate:false});
+  desenhar(camadaMini,false);
+}
+function abrirMapaCheio(){
+  if(!temMapa()){ $('#mapaCheio').innerHTML='<div class="vazio">Mapa indisponível (sem conexão com a biblioteca de mapas).</div>'; return; }
+  if(!pos){ $('#mapaCheio').innerHTML='<div class="vazio">Aguardando a localização do tablet…</div>'; return; }
+  if(!mapaCheio){
+    $('#mapaCheio').innerHTML='';
+    mapaCheio=criarMapa('mapaCheio',true);
+    camadaCheio=L.layerGroup().addTo(mapaCheio);
+  }
+  setTimeout(function(){
+    mapaCheio.invalidateSize();
+    if(circCheio) mapaCheio.removeLayer(circCheio);
+    circCheio=L.circle([pos.lat,pos.lon],{radius:RAIO_KM*1000,color:'#1565c0',weight:2,fillOpacity:.03}).addTo(mapaCheio);
+    mapaCheio.fitBounds(circCheio.getBounds(),{animate:false});
+    L.circleMarker([pos.lat,pos.lon],{radius:6,color:'#fff',weight:2,fillColor:'#1565c0',fillOpacity:1}).addTo(camadaCheio);
+    desenhar(camadaCheio,true);
+  },60);
+  renderListaAeronaves();
+  buscarAeronaves();
+}
+function desenhar(camada, completo){
+  if(!camada) return;
+  camada.clearLayers();
+  if(pos) L.circleMarker([pos.lat,pos.lon],{radius:completo?6:5,color:'#fff',weight:2,fillColor:'#1565c0',fillOpacity:1}).addTo(camada);
+  if(completo) marcadores={};
+  aeronaves.forEach(function(a){
+    var m=L.marker([a.lat,a.lon],{icon:iconeAviao(a.trilha,a.solo),interactive:completo,keyboard:false}).addTo(camada);
+    if(completo){
+      m.bindPopup('<b>'+esc(a.nome)+'</b><br>'+esc(a.det));
+      marcadores[a.hex]=m;
+    }
+  });
+}
+function normalizar(a){
+  var altFt=(a.alt_baro==='ground')?0:(typeof a.alt_baro==='number'?a.alt_baro:(typeof a.alt_geom==='number'?a.alt_geom:null));
+  var solo=(a.alt_baro==='ground');
+  var altM=altFt==null?null:Math.round(altFt*0.3048);
+  var vel=(typeof a.gs==='number')?Math.round(a.gs*1.852):null;
+  var dist=km(pos.lat,pos.lon,a.lat,a.lon);
+  var nome=((a.flight||'').trim())||a.r||a.hex||'—';
+  var det=(solo?'No solo':(altM==null?'Altitude —':pt(altM)+' m'))+' · '+(vel==null?'— km/h':vel+' km/h')+' · '+pt(dist,0)+' km de você'+(a.t?' · '+a.t:'');
+  return {hex:a.hex||nome, nome:nome, lat:a.lat, lon:a.lon, trilha:a.track||0, solo:solo, altM:altM, vel:vel, dist:dist, tipo:a.t||'', det:det};
+}
+function buscarAeronaves(){
+  if(!pos) return Promise.resolve();
+  var i=0;
+  function tentar(){
+    if(i>=PROVEDORES_ADSB.length){ aereoOk=false; atualizarAereoUI(); return Promise.resolve(); }
+    var base=PROVEDORES_ADSB[i++];
+    return fetchJson(base+'/v2/point/'+pos.lat.toFixed(4)+'/'+pos.lon.toFixed(4)+'/'+RAIO_NM,9000).then(function(j){
+      var lista=(j.ac||j.aircraft||[]).filter(function(a){ return typeof a.lat==='number' && typeof a.lon==='number'; });
+      aeronaves=lista.map(normalizar).filter(function(a){ return a.dist<=RAIO_KM*1.05; }).sort(function(x,y){ return x.dist-y.dist; });
+      aereoOk=true; aereoEm=Date.now();
+      atualizarAereoUI();
+    }).catch(function(){ return tentar(); });
+  }
+  return tentar();
+}
+function atualizarAereoUI(){
+  var b=$('#miniBadge');
+  if(!aereoOk) b.textContent='Sem dados agora';
+  else b.textContent=aeronaves.length+(aeronaves.length===1?' aeronave':' aeronaves')+' · '+RAIO_KM+' km';
+  desenhar(camadaMini,false);
+  if(telaAtual()==='trafego'){ desenhar(camadaCheio,true); renderListaAeronaves(); }
+}
+function renderListaAeronaves(){
+  var el=$('#aLista');
+  $('#aTitulo').textContent='Aeronaves ('+aeronaves.length+')';
+  $('#aNota').textContent=aereoEm?'Atualizado às '+new Date(aereoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'';
+  if(!aereoOk && !aeronaves.length){ el.innerHTML='<div class="vazio">Sem dados de tráfego no momento. Tentando novamente…</div>'; return; }
+  if(!aeronaves.length){ el.innerHTML='<div class="vazio">Nenhuma aeronave captada no raio de '+RAIO_KM+' km agora.</div>'; return; }
+  el.innerHTML=aeronaves.slice(0,60).map(function(a){
+    return '<button class="av" type="button" data-hex="'+esc(a.hex)+'"><div class="c">'+esc(a.nome)+'</div><div class="i">'+esc(a.det)+'</div></button>';
+  }).join('');
+}
+$('#aLista').addEventListener('click', function(e){
+  var b=e.target.closest ? e.target.closest('.av') : null;
+  if(!b || !mapaCheio) return;
+  var m=marcadores[b.getAttribute('data-hex')];
+  if(m){ mapaCheio.setView(m.getLatLng(), Math.max(mapaCheio.getZoom(),9)); m.openPopup(); }
+});
+function agendarAereo(){
+  clearTimeout(timerAereo);
+  var espera = telaAtual()==='trafego' ? 10000 : 30000;
+  timerAereo=setTimeout(function(){
+    (document.hidden ? Promise.resolve() : buscarAeronaves()).then(agendarAereo, agendarAereo);
+  }, espera);
+}
+
+/* =============== Rede, tela ligada e ciclo geral =============== */
+function rede(){
+  var n=$('#net'), on=navigator.onLine!==false;
+  n.textContent=on?'● Online':'● Sem internet';
+  n.classList.toggle('off',!on);
+}
+window.addEventListener('online', function(){ rede(); iniciarCiclo(); });
+window.addEventListener('offline', rede);
+function manterTelaLigada(){
+  try{ if('wakeLock' in navigator){ navigator.wakeLock.request('screen').catch(function(){}); } }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){ if(!document.hidden){ manterTelaLigada(); iniciarCiclo(); } });
+
+function iniciarCiclo(){
+  return atualizarLocal().then(function(mudou){
+    mostrarLocal();
+    iniciarMiniMapa();
+    return Promise.all([atualizarTempo(), buscarAeronaves()]);
+  }).catch(function(){});
+}
+
+/* =============== Início =============== */
+tick(); setInterval(tick,1000);
+renderReceitas(); renderTempoResumo(); renderCamHome(); mostrarLocal(); rede(); manterTelaLigada();
+if(pos) iniciarMiniMapa();
+mostrar(telaAtual());
+iniciarCiclo().then(agendarAereo);
+setInterval(function(){ iniciarCiclo(); }, 10*60*1000);   // revalida localização e tempo a cada 10 min
+})();
+</script>
+</body>
+</html>
